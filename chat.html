@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat — Tournament Hub</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .chat-layout { max-width: 800px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; height: calc(100vh - 56px); }
+    .chat-header { margin-bottom: 12px; }
+    .chat-header h2 { font-size: 16px; font-weight: 600; }
+    .chat-header p { font-size: 12px; color: var(--text-dim); }
+    .chat-messages {
+      flex: 1; overflow-y: auto; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px; display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .chat-msg { display: flex; gap: 10px; align-items: flex-start; }
+    .chat-msg-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--bg4); }
+    .chat-msg-body { flex: 1; min-width: 0; }
+    .chat-msg-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+    .chat-msg-user { font-size: 13px; font-weight: 600; color: var(--blue-light); }
+    .chat-msg-time { font-size: 10px; color: var(--text-muted); }
+    .chat-msg-text { font-size: 13px; color: var(--text); line-height: 1.5; word-break: break-word; }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input-row input { flex: 1; }
+    .chat-status { font-size: 11px; color: var(--text-muted); text-align: center; padding: 4px; }
+    .chat-status.connected { color: #66bb6a; }
+    .chat-status.disconnected { color: #ef5350; }
+    .system-msg { text-align: center; font-size: 11px; color: var(--text-muted); padding: 4px 0; }
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <span class="brand">★ TOURNAMENT HUB</span>
+    <div style="display:flex;gap:8px">
+      <a href="index.html" class="btn-icon">← Voltar</a>
+      <a href="bracket.html" class="btn-icon">🏆 Bracket</a>
+    </div>
+    <div id="user-info" class="user-info" style="display:none">
+      <span id="user-name" class="user-name"></span>
+      <img id="user-avatar" class="user-avatar" src="" alt="" />
+    </div>
+  </nav>
+
+  <div class="chat-layout">
+    <div class="chat-header">
+      <h2>💬 Chat do Hub</h2>
+      <p>Converse com outros membros em tempo real.</p>
+    </div>
+    <div id="chat-status" class="chat-status disconnected">Conectando...</div>
+    <div id="chat-messages" class="chat-messages"></div>
+    <div class="chat-input-row">
+      <input id="chat-input" type="text" placeholder="Digite uma mensagem..." maxlength="300" onkeydown="if(event.key==='Enter')sendMsg()" />
+      <button class="btn btn-primary" onclick="sendMsg()">Enviar</button>
+    </div>
+  </div>
+
+  <script>
+    const savedAvatar   = localStorage.getItem("discordAvatar")   || sessionStorage.getItem("discordAvatar")   || "";
+    const savedName     = localStorage.getItem("discordUsername") || sessionStorage.getItem("discordUsername") || "Usuário";
+    const adminKey      = localStorage.getItem("dashKey")         || sessionStorage.getItem("dashKey")         || "";
+
+    if (!adminKey && !localStorage.getItem("dashToken") && !sessionStorage.getItem("dashToken")) {
+      location.href = "/dashboard/login.html";
+    }
+
+    if (savedAvatar && savedName) {
+      document.getElementById("user-name").textContent = savedName;
+      document.getElementById("user-avatar").src = savedAvatar;
+      document.getElementById("user-info").style.display = "flex";
+    }
+
+    const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+    let ws, reconnectTimer;
+
+    function connect() {
+      ws = new WebSocket(`${wsProto}//${location.host}/chat`);
+
+      ws.onopen = () => {
+        document.getElementById("chat-status").textContent = "● Conectado";
+        document.getElementById("chat-status").className = "chat-status connected";
+      };
+
+      ws.onclose = () => {
+        document.getElementById("chat-status").textContent = "● Desconectado — reconectando...";
+        document.getElementById("chat-status").className = "chat-status disconnected";
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === "history") {
+          data.messages.forEach(appendMsg);
+        } else if (data.type === "message") {
+          appendMsg(data);
+        }
+      };
+    }
+
+    function appendMsg(msg) {
+      const container = document.getElementById("chat-messages");
+      const div = document.createElement("div");
+      div.className = "chat-msg";
+      const time = new Date(msg.ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      div.innerHTML = `
+        <img class="chat-msg-avatar" src="${msg.avatar || ''}" alt="" onerror="this.src=''" />
+        <div class="chat-msg-body">
+          <div class="chat-msg-header">
+            <span class="chat-msg-user">${escHtml(msg.user)}</span>
+            <span class="chat-msg-time">${time}</span>
+          </div>
+          <div class="chat-msg-text">${escHtml(msg.text)}</div>
+        </div>`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function sendMsg() {
+      const input = document.getElementById("chat-input");
+      const text = input.value.trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: "message", user: savedName, avatar: savedAvatar, text }));
+      input.value = "";
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    connect();
+  </script>
+</body>
+</html>

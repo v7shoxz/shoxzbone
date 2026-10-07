@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bracket — Tournament Hub</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .bracket-wrap { overflow-x: auto; padding-bottom: 16px; }
+    .bracket { display: flex; gap: 0; align-items: flex-start; min-width: max-content; }
+    .round-col { display: flex; flex-direction: column; min-width: 180px; }
+    .round-label {
+      font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.5px; padding: 0 12px 10px; text-align: center;
+    }
+    .round-matches { display: flex; flex-direction: column; gap: 0; flex: 1; justify-content: space-around; }
+    .match-connector { display: flex; align-items: center; }
+    .match-box {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; width: 168px; margin: 8px 6px;
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .match-box:hover { border-color: var(--accent); }
+    .match-box.overdue { border-color: #b71c1c; }
+    .match-box.finished { border-color: #1a3a1a; opacity: 0.7; }
+    .match-player {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 10px; font-size: 12px; gap: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .match-player:last-child { border-bottom: none; }
+    .match-player.winner { background: #0a1e0a; color: #66bb6a; font-weight: 600; }
+    .match-player.loser { color: var(--text-muted); }
+    .match-player.empty { color: var(--text-muted); font-style: italic; }
+    .player-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player-score {
+      font-size: 11px; font-weight: 700; color: var(--blue-light);
+      background: var(--bg4); border-radius: 4px; padding: 1px 6px; flex-shrink: 0;
+    }
+    .match-status-bar {
+      font-size: 9px; text-align: center; padding: 3px;
+      background: var(--bg4); color: var(--text-muted); letter-spacing: 0.5px;
+    }
+    .match-status-bar.live { background: #1a0000; color: #ef5350; }
+    .match-status-bar.done { background: #0a1a0a; color: #66bb6a; }
+
+    .phase-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+    .phase-tab {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 14px; font-size: 12px;
+      color: var(--text-dim); cursor: pointer;
+    }
+    .phase-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+
+    .tour-select { margin-bottom: 16px; display: flex; gap: 8px; align-items: center; }
+    .tour-select label { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+    .tour-select select { flex: 1; }
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <span class="brand">★ TOURNAMENT HUB</span>
+    <div style="display:flex;gap:8px">
+      <a href="index.html" class="btn-icon">← Voltar</a>
+      <a href="chat.html" class="btn-icon">💬 Chat</a>
+    </div>
+    <div id="user-info" class="user-info" style="display:none">
+      <span id="user-name" class="user-name"></span>
+      <img id="user-avatar" class="user-avatar" src="" alt="" />
+    </div>
+  </nav>
+
+  <div style="max-width:1200px;margin:0 auto;padding:24px 16px">
+    <div class="tour-select">
+      <label>Torneio:</label>
+      <select id="tour-select" onchange="loadBracket()">
+        <option value="">Selecione um torneio...</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="loadBracket()">🔄</button>
+    </div>
+
+    <div id="phase-tabs" class="phase-tabs"></div>
+
+    <div id="bracket-container" class="card">
+      <div class="empty-msg">Selecione um torneio para ver o bracket.</div>
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_BASE = location.origin + "/admin";
+    let adminKey = localStorage.getItem("dashKey") || sessionStorage.getItem("dashKey") || "";
+    let currentPhase = 1;
+    let currentTournamentId = null;
+
+    // Mostra avatar
+    const savedAvatar = localStorage.getItem("discordAvatar");
+    const savedName = localStorage.getItem("discordUsername");
+    if (savedAvatar && savedName) {
+      document.getElementById("user-name").textContent = savedName;
+      document.getElementById("user-avatar").src = savedAvatar;
+      document.getElementById("user-info").style.display = "flex";
+    }
+
+    async function init() {
+      if (!adminKey) { location.href = "/dashboard/login.html"; return; }
+      await loadTournaments();
+    }
+
+    async function loadTournaments() {
+      const res = await fetch(`${ADMIN_BASE}/tournaments?limit=100`, { headers: { "x-admin-key": adminKey } });
+      const data = await res.json();
+      const sel = document.getElementById("tour-select");
+      (data.tournaments || []).forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.TournamentId;
+        opt.textContent = t.TournamentName;
+        sel.appendChild(opt);
+      });
+    }
+
+    async function loadBracket() {
+      const id = document.getElementById("tour-select").value;
+      if (!id) return;
+      currentTournamentId = id;
+      await renderBracket(id, currentPhase);
+    }
+
+    async function renderBracket(id, phase) {
+      const container = document.getElementById("bracket-container");
+      container.innerHTML = '<div class="loading">Carregando bracket...</div>';
+      try {
+        const res = await fetch(`${ADMIN_BASE}/matches/${id}?phase=${phase}`, { headers: { "x-admin-key": adminKey } });
+        const data = await res.json();
+
+        // Phase tabs
+        const tabs = document.getElementById("phase-tabs");
+        tabs.innerHTML = "";
+        for (let i = 1; i <= data.phaseCount; i++) {
+          const btn = document.createElement("button");
+          btn.className = "phase-tab" + (i === phase ? " active" : "");
+          btn.textContent = `Fase ${i}`;
+          btn.onclick = () => { currentPhase = i; renderBracket(id, i); };
+          tabs.appendChild(btn);
+        }
+
+        const rounds = data.rounds;
+        const roundKeys = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+
+        if (!roundKeys.length) {
+          container.innerHTML = '<div class="empty-msg">Nenhum match encontrado para esta fase.</div>';
+          return;
+        }
+
+        const bracket = document.createElement("div");
+        bracket.className = "bracket-wrap";
+        const inner = document.createElement("div");
+        inner.className = "bracket";
+
+        roundKeys.forEach((round) => {
+          const col = document.createElement("div");
+          col.className = "round-col";
+
+          const label = document.createElement("div");
+          label.className = "round-label";
+          const isLast = round === roundKeys[roundKeys.length - 1];
+          label.textContent = isLast ? "Final" : round === roundKeys[roundKeys.length - 2] ? "Semi-Final" : `Round ${round}`;
+          col.appendChild(label);
+
+          const matchesWrap = document.createElement("div");
+          matchesWrap.className = "round-matches";
+
+          rounds[round].forEach((match) => {
+            const box = document.createElement("div");
+            const isLive = match.status === 7 || match.status === 6 || match.status === 5;
+            const isDone = match.status === 8 || match.status === 5;
+            box.className = "match-box" + (isLive ? " overdue" : "") + (isDone ? " finished" : "");
+
+            const statusText = getStatusText(match.status);
+            const statusClass = isLive ? "live" : isDone ? "done" : "";
+
+            const teams = groupByTeam(match.players);
+            const playersHtml = teams.length
+              ? teams.map((team) => {
+                  const isWinner = team.some((p) => p.winner);
+                  const isLoser = isDone && !isWinner;
+                  const cls = isWinner ? "winner" : isLoser ? "loser" : "";
+                  const score = team[0]?.score || "0";
+                  const name = team.map((p) => p.nick || `#${p.userId}`).join(" & ");
+                  return `<div class="match-player ${cls}"><span class="player-name">${name}</span><span class="player-score">${score}</span></div>`;
+                }).join("")
+              : `<div class="match-player empty">TBD</div><div class="match-player empty">TBD</div>`;
+
+            box.innerHTML = `
+              <div class="match-status-bar ${statusClass}">${statusText}</div>
+              ${playersHtml}
+            `;
+            matchesWrap.appendChild(box);
+          });
+
+          col.appendChild(matchesWrap);
+          inner.appendChild(col);
+        });
+
+        bracket.appendChild(inner);
+        container.innerHTML = "";
+        container.appendChild(bracket);
+      } catch (e) {
+        container.innerHTML = `<div class="error-msg">Erro: ${e.message}</div>`;
+      }
+    }
+
+    function groupByTeam(players) {
+      const map = {};
+      players.forEach((p) => {
+        if (!map[p.teamId]) map[p.teamId] = [];
+        map[p.teamId].push(p);
+      });
+      return Object.values(map);
+    }
+
+    function getStatusText(status) {
+      const s = { 0: "CRIADO", 1: "AGUARDANDO", 2: "PRONTO", 3: "EM JOGO", 4: "FINALIZADO", 5: "ENCERRADO", 6: "EM PROGRESSO", 7: "EM JOGO", 8: "ENCERRADO" };
+      return s[status] || "—";
+    }
+
+    // Auto-refresh a cada 15s se tiver torneio selecionado
+    setInterval(() => { if (currentTournamentId) renderBracket(currentTournamentId, currentPhase); }, 15000);
+
+    init();
+  </script>
+</body>
+</html>
