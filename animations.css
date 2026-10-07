@@ -1,0 +1,141 @@
+/* ── Tournament X — Animations ── */
+
+/* Fade in ao carregar a página */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Slide in da esquerda */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Slide in da direita */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Scale in (pop) */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Shake (tremida) */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-6px); }
+  30%       { transform: translateX(6px); }
+  45%       { transform: translateX(-4px); }
+  60%       { transform: translateX(4px); }
+  75%       { transform: translateX(-2px); }
+  90%       { transform: translateX(2px); }
+}
+
+/* Pulse suave */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.03); }
+}
+
+/* Shimmer (loading skeleton) */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+/* Bounce in */
+@keyframes bounceIn {
+  0%   { opacity: 0; transform: scale(0.7); }
+  60%  { opacity: 1; transform: scale(1.05); }
+  80%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+/* ── Classes utilitárias ── */
+
+.anim-fade-in   { animation: fadeIn 0.35s ease both; }
+.anim-slide-left  { animation: slideInLeft 0.35s ease both; }
+.anim-slide-right { animation: slideInRight 0.35s ease both; }
+.anim-scale-in  { animation: scaleIn 0.3s ease both; }
+.anim-bounce-in { animation: bounceIn 0.4s ease both; }
+.anim-shake     { animation: shake 0.5s ease; }
+.anim-pulse     { animation: pulse 1.8s ease-in-out infinite; }
+
+/* Delays escalonados para listas */
+.anim-delay-1 { animation-delay: 0.05s; }
+.anim-delay-2 { animation-delay: 0.10s; }
+.anim-delay-3 { animation-delay: 0.15s; }
+.anim-delay-4 { animation-delay: 0.20s; }
+.anim-delay-5 { animation-delay: 0.25s; }
+
+/* ── Transições globais ── */
+
+/* Botões — tremida ao clicar */
+button, .btn-primary, .btn-outline, .btn-save, .btn-next, .btn-back,
+.btn-confirm, .btn-cancel, .sidebar-item, .tab-btn, .mode-item {
+  transition: transform 0.12s ease, background 0.2s ease,
+              border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:active, .btn-primary:active, .btn-outline:active,
+.btn-save:active, .btn-next:active, .btn-back:active,
+.btn-confirm:active, .btn-cancel:active {
+  transform: scale(0.96);
+}
+
+/* Cards — hover lift */
+.t-card, .an-card, .an-card2, .dash-tour-item, .inv-card,
+.round-card, .mode-item, .stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.t-card:hover, .an-card:hover, .an-card2:hover,
+.dash-tour-item:hover, .inv-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+/* Links da sidebar */
+.sidebar-item {
+  transition: background 0.18s ease, color 0.18s ease,
+              border-color 0.18s ease, transform 0.12s ease;
+}
+.sidebar-item:active { transform: scale(0.97); }
+
+/* Inputs — glow ao focar */
+input, select, textarea {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* Modais — fade + scale */
+.modal-overlay { transition: opacity 0.2s ease; }
+.modal-overlay.open .modal,
+.modal-overlay.open > div {
+  animation: scaleIn 0.25s ease both;
+}
+
+/* Tabs — fade ao trocar */
+.tab-content.active { animation: fadeIn 0.25s ease both; }
+.dash-page          { animation: fadeIn 0.3s ease both; }
+.step-page.active   { animation: fadeIn 0.3s ease both; }
+
+/* Toasts */
+.toast.show { animation: slideInRight 0.3s ease both; }
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, #1a2035 25%, #2a3050 50%, #1a2035 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 8px;
+}
+
+/* Página inteira — fade in ao carregar */
+body { animation: fadeIn 0.4s ease both; }
